@@ -14,4 +14,6 @@ Code
 
 'RealData2.R' is the R code for SNP genotyping data analysis (Figure 4) in the paper.
 
+Data
 
+'SNPdata' is the SNP genotyping data used in 'RealData2.R' file.
