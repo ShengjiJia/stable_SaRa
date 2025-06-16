@@ -10,6 +10,8 @@ Code
 
 'Simulation2.R' is the R code for Simulation 2 (Table 2) in the paper.
 
+'Simulation3.R' is the R code for Additional Simulation in the Appendex.
+
 'RealData1.R' is the R code for Coriel data analysis (Table 3, Figure 3) in the paper.
 
 'RealData2.R' is the R code for SNP genotyping data analysis (Figure 4) in the paper.
