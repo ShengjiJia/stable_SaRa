@@ -1,6 +1,6 @@
 library(hdi)
 library(DNAcopy)
-library(tilingArray)
+library(mosum)
 library(cumSeg)
 
 ###############################define some functions
@@ -26,16 +26,15 @@ localMax<-function (y, span = 5) {   #see original SaRa algorithm
   return(index)
 }
 
-refine<-function(y,candidate){          #Step2
-  #y: response or data
-  #candidate: change points candidates after screening in Step 1
+refine<-function(y, candidate, itermax=10, delta=3){          #Step2
+  #y: data; candidate: change-points candidates in Step 1
   k1=length(candidate)
   psi=c(0,candidate,length(y)+1)
-  for(iter in 1:10){
+  for(iter in 1:itermax){
     r=sample(2:(k1+1),size=k1,replace=FALSE)
     for(j in 1:k1){
       a=r[j]
-      b=min(psi[a+1]-psi[a]-2,psi[a]-psi[a-1]-2,5)
+      b=min(psi[a+1]-psi[a]-2, psi[a]-psi[a-1]-2, delta)
       candid2=(psi[a]-b):(psi[a]+b)
       s=1:(2*b+1)
       for(l in 1:(2*b+1)){
@@ -68,7 +67,7 @@ test<-function(y,candidate2,alpha){          #Step3
 
 
 #######Real Data
-SNPdata <- read.delim("C:/Users/Acer/Desktop/My Document/Documents/Research/Projects/change points(stable)/SNPdata.txt")
+SNPdata <- read.delim("~/Research/Projects/change points(stable)/SNPdata.txt")
 y=na.omit(SNPdata$X99HI0700A.Log.R.Ratio[which(SNPdata$Chr==20)])
 y=y[-which(y<=-1.5)]
 n=length(y)
@@ -92,17 +91,17 @@ for(i in 1:(num1+1)){
 par(mfrow=c(2,3))
 plot(y,xlab="locations",main="CBS",pch=20,col=8)
 lines(estimate1,col=2,lwd=2)
-###DP
-DP=tilingArray::segment(y, maxseg=50, maxk=n/10)
-num2=which.max(logLik(DP, penalty="BIC"))-1
-loc2=DP@breakpoints[[which.max(logLik(DP, penalty="BIC"))]][,"estimate"]
+###MOSUM
+MOSUM=mosum(y, G=10)
+loc2=MOSUM$cpts
+num2=length(loc2)
 loc22=c(0,loc2,n)
 estimate2=NULL
 for(i in 1:(num2+1)){
   m=mean(y[(loc22[i]+1):loc22[i+1]])
   estimate2=c(estimate2,rep(m, loc22[i+1]-loc22[i]))
 }
-plot(y,xlab="locations",main="DP",pch=20,col=8)
+plot(y,xlab="locations",main="MOSUM",pch=20,col=8)
 lines(estimate2,col=2,lwd=2)
 ###SaRa-BIC
 h1=20
