@@ -34,6 +34,7 @@ tau=sort(sample(1:49, size=J, replace = FALSE))*20
 h=c(6,8,10)
 lambda=0.35*0.9^((1:5)-1)
 num=matrix(0,nr=3,ncol=5)       #average number of candidates
+FDP=matrix(0,nr=3,ncol=5)        #average FDP
 beta=sample(c(-0.6,-0.4,0.4,0.6), size=J, replace = TRUE)
 signal=0
 for(i in 1:J){
@@ -43,20 +44,32 @@ for(i in 1:3){
   h1=h[i]
   for(j in 1:5){
     n1=rep(0,200)
+    fp=rep(0,200)
     for(k in 1:200){
       y=signal+rnorm(n,mean=0,sd=0.25) 
       D=abs(localDiagnostic(y, h=h1))
       index=localMax(D,span=h1)
-      n1[k]=sum(D[index]>lambda[j])
+      candidate=index[which(D[index]>lambda[j])]
+      n1[k]=length(candidate)
+      for(l in 1:length(candidate)){
+        if(min(abs(candidate[l]-tau))>1)
+          fp[k]=fp[k]+1
+      }
+      fp[k]=fp[k]/length(candidate)
     }
     num[i,j]=mean(n1)
+    FDP[i,j]=mean(fp)
   }
 }
 
 ############################Figure 1
-par(mfrow=c(1,2))
+par(mfrow=c(1,3))
 plot(x,signal,type="l", lwd=2, xlab="locations", ylab="signal", main="true signal")
 plot(x=lambda, y=num[1, ], pch=1, col=3, type="b", ylim=c(10,50), xlab = "lambda",ylab ="K",main="estimated K")
 lines(x=lambda, y=num[2, ], pch=2, col=2, type="b")
 lines(x=lambda, y=num[3, ], pch=3, col=1, type="b")
+legend("topright", legend=c("h=6","h=8","h=10"), pch=c(1,2,3), col=c(3,2,1), bty="n")
+plot(x=lambda, y=FDP[1, ], pch=1, col=3, type="b", ylim=c(0,1), xlab = "lambda",ylab ="FDP",main="FDP")
+lines(x=lambda, y=FDP[2, ], pch=2, col=2, type="b")
+lines(x=lambda, y=FDP[3, ], pch=3, col=1, type="b")
 legend("topright", legend=c("h=6","h=8","h=10"), pch=c(1,2,3), col=c(3,2,1), bty="n")
