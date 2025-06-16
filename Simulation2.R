@@ -1,6 +1,6 @@
 library(hdi)
 library(DNAcopy)
-library(tilingArray)
+library(mosum)
 
 ###############################define some functions
 localDiagnostic<-function (y, h) {    #see original SaRa algorithm 
@@ -25,16 +25,15 @@ localMax<-function (y, span = 5) {   #see original SaRa algorithm
   return(index)
 }
 
-refine<-function(y,candidate){          #Step2
-  #y: response or data
-  #candidate: change points candidates after screening in Step 1
+refine<-function(y, candidate, itermax=10, delta=3){          #Step2
+  #y: data; candidate: change-points candidates in Step 1
   k1=length(candidate)
   psi=c(0,candidate,length(y)+1)
-  for(iter in 1:10){
+  for(iter in 1:itermax){
     r=sample(2:(k1+1),size=k1,replace=FALSE)
     for(j in 1:k1){
       a=r[j]
-      b=min(psi[a+1]-psi[a]-2,psi[a]-psi[a-1]-2,5)
+      b=min(psi[a+1]-psi[a]-2, psi[a]-psi[a-1]-2, delta)
       candid2=(psi[a]-b):(psi[a]+b)
       s=1:(2*b+1)
       for(l in 1:(2*b+1)){
@@ -81,8 +80,8 @@ for(i in 1:J){
   signal<-signal+beta[i]*(x>tau[i])
 }
 weaktau=tau[which(abs(beta)==0.25)]         #change points with weak signals
-Num=matrix(0,nr=5,ncol=4)         #number of change points for 4 cases and 5 methods
-tr=matrix(0,nr=5,ncol=4)              #true detection rate for 4 cases and 5 methods
+Num=matrix(0,nr=5,ncol=5)         #number of change points for 5 cases and 5 methods
+tr=matrix(0,nr=5,ncol=5)              #true detection rate for 5 cases and 5 methods
 
 #####case 1 i.i.d. errors
 num=matrix(0,nr=5,ncol=200)       #final estimated number  
@@ -104,10 +103,10 @@ for(i in 1:200){
     if(min(abs(estimate1-weaktau[l]))<=3)
       weakTR[1,i]=weakTR[1,i]+1/length(weaktau)
   }
-  ######DP
-  DP=tilingArray::segment(y, maxseg=100, maxk=n/10)
-  num[2,i]=which.max(logLik(DP, penalty="BIC"))-1
-  estimate2=DP@breakpoints[[which.max(logLik(DP, penalty="BIC"))]][,"estimate"]
+  ######MOSUM
+  MOSUM=mosum(y, G=10)
+  estimate2=MOSUM$cpts
+  num[2,i]=length(estimate2)
   TR[2,i]=0 
   for(l in 1:J){
     if(min(abs(estimate2-tau[l]))<=3)
@@ -191,10 +190,10 @@ for(i in 1:200){
     if(min(abs(estimate1-tau[l]))<=3)
       TR[1,i]=TR[1,i]+1/J
   }
-  ######DP
-  DP=tilingArray::segment(y, maxseg=100, maxk=n/10)
-  num[2,i]=which.max(logLik(DP, penalty="BIC"))-1
-  estimate2=DP@breakpoints[[which.max(logLik(DP, penalty="BIC"))]][,"estimate"]
+  ######MOSUM
+  MOSUM=mosum(y, G=10)
+  estimate2=MOSUM$cpts
+  num[2,i]=length(estimate2)
   TR[2,i]=0 
   for(l in 1:J){
     if(min(abs(estimate2-tau[l]))<=3)
@@ -258,10 +257,10 @@ for(i in 1:200){
     if(min(abs(estimate1-tau[l]))<=3)
       TR[1,i]=TR[1,i]+1/J
   }
-  ######DP
-  DP=tilingArray::segment(y, maxseg=100, maxk=n/10)
-  num[2,i]=which.max(logLik(DP, penalty="BIC"))-1
-  estimate2=DP@breakpoints[[which.max(logLik(DP, penalty="BIC"))]][,"estimate"]
+  ######MOSUM
+  MOSUM=mosum(y, G=10)
+  estimate2=MOSUM$cpts
+  num[2,i]=length(estimate2)
   TR[2,i]=0 
   for(l in 1:J){
     if(min(abs(estimate2-tau[l]))<=3)
@@ -325,10 +324,10 @@ for(i in 1:200){
     if(min(abs(estimate1-tau[l]))<=3)
       TR[1,i]=TR[1,i]+1/J
   }
-  ######DP
-  DP=tilingArray::segment(y, maxseg=100, maxk=n/10)
-  num[2,i]=which.max(logLik(DP, penalty="BIC"))-1
-  estimate2=DP@breakpoints[[which.max(logLik(DP, penalty="BIC"))]][,"estimate"]
+  ######MOSUM
+  MOSUM=mosum(y, G=10)
+  estimate2=MOSUM$cpts
+  num[2,i]=length(estimate2)
   TR[2,i]=0 
   for(l in 1:J){
     if(min(abs(estimate2-tau[l]))<=3)
@@ -378,8 +377,77 @@ for(i in 1:200){
 Num[,4]=apply(num,1,mean)
 tr[,4]=apply(TR,1,mean)
 
+#######case 5 outliers
+num=matrix(0,nr=5,ncol=200)      #final estimated number  
+TR=matrix(0,nr=5,ncol=200)         #true detection rate
+for(i in 1:200){
+  y=signal+rnorm(n,mean=0,sd=0.2) 
+  subset=sort(sample(1:n, size=10, replace=FALSE))
+  y[subset]=rnorm(10,mean=0,sd=2)
+  ######CBS
+  CBS=DNAcopy::segment(CNA(y, rep(1,n), 1:n))
+  num[1,i]=length(CBS$output[,4])-1
+  estimate1=CBS$output[1:(length(CBS$output[,4])-1),4]
+  TR[1,i]=0 
+  for(l in 1:J){
+    if(min(abs(estimate1-tau[l]))<=3)
+      TR[1,i]=TR[1,i]+1/J
+  }
+  ######MOSUM
+  MOSUM=mosum(y, G=10)
+  estimate2=MOSUM$cpts
+  num[2,i]=length(estimate2)
+  TR[2,i]=0 
+  for(l in 1:J){
+    if(min(abs(estimate2-tau[l]))<=3)
+      TR[2,i]=TR[2,i]+1/J
+  }
+  ######SaRa-BIC
+  h1=10
+  D=abs(localDiagnostic(y, h=h1))
+  index=localMax(D,span=h1)
+  lambda=2*sqrt(2/h1)*mad(diff(y))/sqrt(2)        #use robust estimator of sigma
+  candidate=index[which(D[index]>lambda)]
+  candidate1=candidate[order(D[candidate],decreasing=TRUE)]          #ranking
+  bic=rep(0,length(candidate1))
+  mbic=rep(0,length(candidate1))
+  for(j in 1:length(candidate1)){
+    model=lm(y~X[,candidate1[1:j]])
+    bic[j]=n*log(summary(model)$sigma)+j*log(n)
+    mbic[j]=n*log(summary(model)$sigma)+1.5*j*log(n)+0.5*sum(log(diff(c(0,sort(candidate1[1:j]),n))/n))
+  }
+  j1=which.min(bic)
+  estimate3=candidate1[1:j1]
+  num[3,i]=length(estimate3)
+  TR[3,i]=0 
+  for(l in 1:J){
+    if(min(abs(estimate3-tau[l]))<=3)
+      TR[3,i]=TR[3,i]+1/J
+  }
+  ######SaRa-mBIC
+  j2=which.min(mbic)
+  estimate4=candidate1[1:j2]
+  num[4,i]=length(estimate4)
+  TR[4,i]=0 
+  for(l in 1:J){
+    if(min(abs(estimate4-tau[l]))<=3)
+      TR[4,i]=TR[4,i]+1/J
+  }
+  ######proposed s-SaRa
+  candidate2=refine(y,candidate)
+  estimate5=test(y,candidate2,0.05)
+  num[5,i]=length(estimate5)
+  TR[5,i]=0 
+  for(l in 1:J){
+    if(min(abs(estimate5-tau[l]))<=3)
+      TR[5,i]=TR[5,i]+1/J
+  }
+}
+Num[,5]=apply(num,1,mean)
+tr[,5]=apply(TR,1,mean)
+
 #################################Table 2
-cbind(Num[,1],tr[,1],Num[,2],tr[,2],Num[,3],tr[,3],Num[,4],tr[,4])
+cbind(Num[,1],tr[,1],Num[,2],tr[,2],Num[,3],tr[,3],Num[,4],tr[,4],Num[,5],tr[,5])
 
 #################################true detecion rate (TR) for weak signals for case 1
-apply(weakTR,1,mean)[3:5]
+apply(weakTR,1,mean)[2:5]
