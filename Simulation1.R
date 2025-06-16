@@ -23,16 +23,15 @@ localMax<-function (y, span = 5) {   #see original SaRa algorithm
   return(index)
 }
 
-refine<-function(y,candidate){          #Step2
-  #y: response or data
-  #candidate: change points candidates after screening in Step 1
+refine<-function(y, candidate, itermax=10, delta=3){          #Step2
+  #y: data; candidate: change-points candidates in Step 1
   k1=length(candidate)
   psi=c(0,candidate,length(y)+1)
-  for(iter in 1:10){
+  for(iter in 1:itermax){
     r=sample(2:(k1+1),size=k1,replace=FALSE)
     for(j in 1:k1){
       a=r[j]
-      b=min(psi[a+1]-psi[a]-2,psi[a]-psi[a-1]-2,5)
+      b=min(psi[a+1]-psi[a]-2, psi[a]-psi[a-1]-2, delta)
       candid2=(psi[a]-b):(psi[a]+b)
       s=1:(2*b+1)
       for(l in 1:(2*b+1)){
@@ -71,11 +70,11 @@ x=1:n
 tau=sort(sample(1:149, size=J, replace = FALSE))*20
 h=c(8,10,12)
 lambda=0.3*0.95^(1:4)
-num=matrix(0,nr=3,ncol=4)       #average number of candidates
-Num=matrix(0,nr=3,ncol=4)       #average estimated of final estimates
-FP=matrix(0,nr=3,ncol=4)         #average number of FP
+num=matrix(0,nr=3,ncol=4)       #average K in Step 1
+Num=matrix(0,nr=3,ncol=4)       #average K in Step 3
+FDP=matrix(0,nr=3,ncol=4)        #average FDP
 TR=matrix(0,nr=3,ncol=4)         #average true detection rate
-beta=sample(c(-1,-0.5,0.5,1), size=J, replace = TRUE)
+beta=sample(c(-1,1), size=J, replace = TRUE)
 signal=0
 for(i in 1:J){
   signal<-signal+beta[i]*(x>tau[i])
@@ -88,26 +87,25 @@ for(k in 1:3){
     fp=rep(0,200)
     tr=rep(0,200)
     for(i in 1:200){
-      y=signal+rnorm(n,mean=0,sd=0.25) 
+      y=signal+rnorm(n,mean=0,sd=0.3) 
       D=abs(localDiagnostic(y, h=h1))
       index=localMax(D,span=h1)
       candidate=index[which(D[index]>lambda[j])]
       candidate2=refine(y,candidate)
       estimate=test(y,candidate2,0.05)
-      fp[i]=0
       for(l in 1:length(estimate)){
-        if(min(abs(estimate[l]-tau))>3)
+        if(min(abs(estimate[l]-tau))>1)
           fp[i]=fp[i]+1
       }
-      tr[i]=0 
+      fp[i]=fp[i]/length(estimate)
       for(l in 1:J){
-        if(min(abs(estimate-tau[l]))<=3)
+        if(min(abs(estimate-tau[l]))<=1)
           tr[i]=tr[i]+1/J
       }
       n1[i]=length(candidate)
       n2[i]=length(estimate)
     }
-    FP[k,j]=mean(fp)
+    FDP[k,j]=mean(fp)
     TR[k,j]=mean(tr)
     num[k,j]=mean(n1)
     Num[k,j]=mean(n2)
@@ -116,15 +114,15 @@ for(k in 1:3){
 
 #####################################Figure 2
 par(mfrow=c(1,3))
-plot(x=lambda, y=num[1, ], pch=2, col=3, type="b", ylim=c(40,90), xlab = "lambda",ylab ="number of change points",main="h=8")
+plot(x=lambda, y=num[1, ], pch=2, col=3, type="b", ylim=c(40,110), xlab = "lambda",ylab ="number of change points",main="h=8")
 lines(x=lambda, y=Num[1, ], col=2, type="b")
 legend("topright", legend=c("Step1","Step3"), pch=c(2,1), col=c(3,2), bty="n")
-plot(x=lambda, y=num[2, ], pch=2, col=3, type="b", ylim=c(40,90), xlab = "lambda",ylab ="number of change points",main="h=10")
+plot(x=lambda, y=num[2, ], pch=2, col=3, type="b", ylim=c(40,110), xlab = "lambda",ylab ="number of change points",main="h=10")
 lines(x=lambda, y=Num[2, ], col=2, type="b")
 legend("topright", legend=c("Step1","Step3"), pch=c(2,1), col=c(3,2), bty="n")
-plot(x=lambda, y=num[3, ], pch=2, col=3, type="b", ylim=c(40,90), xlab = "lambda",ylab ="number of change points",main="h=12")
+plot(x=lambda, y=num[3, ], pch=2, col=3, type="b", ylim=c(40,110), xlab = "lambda",ylab ="number of change points",main="h=12")
 lines(x=lambda, y=Num[3, ], col=2, type="b")
 legend("topright", legend=c("Step1","Step3"), pch=c(2,1), col=c(3,2), bty="n")
 
 #####################################Table 1
-cbind(Num[1,],TR[1,],FP[1,],Num[2,],TR[2,],FP[2,],Num[3,],TR[3,],FP[3,])
+cbind(Num[1,],TR[1,],FDP[1,],Num[2,],TR[2,],FDP[2,],Num[3,],TR[3,],FDP[3,])
